@@ -12,4 +12,6 @@ public class Part
 
     public PartCategory? Category { get; set; }
     public Stock? Stock { get; set; }
+    public ICollection<PurchaseInvoiceItem> PurchaseInvoiceItems { get; set; } = new List<PurchaseInvoiceItem>();
+    public ICollection<SalesInvoiceItem> SalesInvoiceItems { get; set; } = new List<SalesInvoiceItem>();
 }

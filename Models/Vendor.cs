@@ -8,4 +8,5 @@ public class Vendor
     public string VendorEmail { get; set; } = string.Empty;
     public string VendorAddress { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;
+    public ICollection<PurchaseInvoice> PurchaseInvoices { get; set; } = new List<PurchaseInvoice>();
 }
