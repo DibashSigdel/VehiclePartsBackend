@@ -1,50 +1,79 @@
-# Build outputs
+################################################################################
+# VehiclePartsBackend — .NET / ASP.NET Core (proper defaults + project extras)
+################################################################################
+
+## Build outputs (never commit)
 [Bb]in/
 [Oo]bj/
+[Ll]og/
+[Ll]ogs/
 out/
 publish/
 
-# Custom output folders from `dotnet build -o ...` (never commit these)
+## Custom `dotnet build -o <folder>` output (never commit)
 temp-build/
 temp-build-*/
 .agent-build*/
 
-# User-specific files
-*.user
+## BenchmarkDotNet / profiling artifacts
+BenchmarkDotNet.Artifacts/
+
+## NuGet
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.fragment.lock.json
+
+## Rider / JetBrains
+.idea/
+*.sln.iml
+
+## Visual Studio
+.vs/
 *.rsuser
 *.suo
+*.user
 *.userosscache
 *.sln.docstates
+*.DotSettings.user
 
-# Visual Studio / VS Code / Rider
-.vs/
+## VS Code (uncomment if your team shares launch/tasks — currently ignored)
 .vscode/
-.idea/
 
-# Logs and temporary files
+## Test & coverage
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.coverage
+*.coveragexml
+coverage/
+
+## Logs & temp
 *.log
 logs/
 tmp/
 temp/
 *.tmp
 
-# Test and coverage
-TestResults/
-coverage/
-*.coverage
-*.coveragexml
+## SQLite transient files (safe to ignore; keep committing vehicleparts.db only if you choose)
+*.db-shm
+*.db-wal
 
-# Package manager
-*.nupkg
-packages/
-
-# Environment and secrets
+## ASP.NET secret / local overrides — NEVER commit real secrets
 .env
 .env.*
 appsettings.Local.json
 appsettings.*.local.json
 secrets.json
+**/Properties/PublishProfiles/*.pubxml.user
 
-# OS files
+## Azure Functions local secrets (if you add later)
+local.settings.json
+
+## OS junk
 .DS_Store
 Thumbs.db
+desktop.ini
