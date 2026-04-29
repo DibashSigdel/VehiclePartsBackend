@@ -134,6 +134,30 @@ public class AppDbContext : DbContext
             .HasForeignKey(x => x.CustomerId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<PurchaseInvoice>()
+            .HasMany(x => x.Items)
+            .WithOne(x => x.PurchaseInvoice)
+            .HasForeignKey(x => x.PurchaseInvoiceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PurchaseInvoiceItem>()
+            .HasOne(x => x.Part)
+            .WithMany(x => x.PurchaseInvoiceItems)
+            .HasForeignKey(x => x.PartId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<SalesInvoice>()
+            .HasMany(x => x.Items)
+            .WithOne(x => x.SalesInvoice)
+            .HasForeignKey(x => x.SalesInvoiceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SalesInvoiceItem>()
+            .HasOne(x => x.Part)
+            .WithMany(x => x.SalesInvoiceItems)
+            .HasForeignKey(x => x.PartId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         modelBuilder.Entity<Review>()
             .ToTable(x => x.HasCheckConstraint("CK_Review_Rating", "\"Rating\" >= 1 AND \"Rating\" <= 5"));
     }
