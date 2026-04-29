@@ -4,6 +4,11 @@
 out/
 publish/
 
+# Custom output folders from `dotnet build -o ...` (never commit these)
+temp-build/
+temp-build-*/
+.agent-build*/
+
 # User-specific files
 *.user
 *.rsuser

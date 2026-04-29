@@ -1,3 +1,5 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -56,16 +58,10 @@ public class CustomersController : ControllerBase
     [Authorize(Roles = Roles.Customer)]
     public async Task<ActionResult<CustomerProfileResponse>> GetProfile()
     {
-        var userIdText = User.FindFirst("sub")?.Value;
-        if (!int.TryParse(userIdText, out var userId))
-        {
-            return Unauthorized();
-        }
-
-        var customer = await _context.Users.SingleOrDefaultAsync(x => x.UserId == userId && x.Role == Roles.Customer);
+        var customer = await GetCurrentCustomerAsync();
         if (customer is null)
         {
-            return NotFound("Customer not found.");
+            return Unauthorized();
         }
 
         return Ok(new CustomerProfileResponse
@@ -85,19 +81,13 @@ public class CustomersController : ControllerBase
     [Authorize(Roles = Roles.Customer)]
     public async Task<IActionResult> UpdateProfile(CustomerUpdateProfileRequest request)
     {
-        var userIdText = User.FindFirst("sub")?.Value;
-        if (!int.TryParse(userIdText, out var userId))
+        var customer = await GetCurrentCustomerAsync();
+        if (customer is null)
         {
             return Unauthorized();
         }
 
-        var customer = await _context.Users.SingleOrDefaultAsync(x => x.UserId == userId && x.Role == Roles.Customer);
-        if (customer is null)
-        {
-            return NotFound("Customer not found.");
-        }
-
-        var emailInUse = await _context.Users.AnyAsync(x => x.Email == request.Email && x.UserId != userId);
+        var emailInUse = await _context.Users.AnyAsync(x => x.Email == request.Email && x.UserId != customer.UserId);
         if (emailInUse)
         {
             return BadRequest("Email is already used by another user.");
@@ -115,5 +105,30 @@ public class CustomersController : ControllerBase
 
         await _context.SaveChangesAsync();
         return Ok("Profile updated.");
+    }
+
+    private async Task<User?> GetCurrentCustomerAsync()
+    {
+        var idText =
+            User.FindFirstValue(ClaimTypes.NameIdentifier) ??
+            User.FindFirstValue(JwtRegisteredClaimNames.Sub) ??
+            User.FindFirstValue("sub");
+
+        if (int.TryParse(idText, out var userId))
+        {
+            return await _context.Users.SingleOrDefaultAsync(x => x.UserId == userId && x.Role == Roles.Customer);
+        }
+
+        var email =
+            User.FindFirstValue(ClaimTypes.Email) ??
+            User.FindFirstValue(JwtRegisteredClaimNames.Email) ??
+            User.FindFirstValue("email");
+
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            return await _context.Users.SingleOrDefaultAsync(x => x.Email == email && x.Role == Roles.Customer);
+        }
+
+        return null;
     }
 }
