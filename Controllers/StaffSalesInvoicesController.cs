@@ -154,7 +154,13 @@ public class StaffSalesInvoicesController : ControllerBase
             subTotal += line.UnitPrice * line.Quantity;
         }
 
-        var totalAmount = subTotal - request.DiscountAmount;
+        var loyaltyDiscount = LoyaltyRules.CalculateLoyaltyDiscount(subTotal);
+        var loyaltyApplied = loyaltyDiscount > 0;
+        var discountAmount = loyaltyApplied
+            ? Math.Max(request.DiscountAmount, loyaltyDiscount)
+            : request.DiscountAmount;
+
+        var totalAmount = subTotal - discountAmount;
         if (totalAmount < 0)
         {
             return BadRequest("Discount is larger than the invoice subtotal.");
@@ -175,7 +181,7 @@ public class StaffSalesInvoicesController : ControllerBase
                 PaymentStatus = paymentStatus,
                 CreditDueDate = request.CreditDueDate,
                 SubTotal = subTotal,
-                DiscountAmount = request.DiscountAmount,
+                DiscountAmount = discountAmount,
                 TotalAmount = totalAmount
             };
 
@@ -220,7 +226,9 @@ public class StaffSalesInvoicesController : ControllerBase
                 DiscountAmount = invoice.DiscountAmount,
                 TotalAmount = invoice.TotalAmount,
                 PaymentType = invoice.PaymentType,
-                PaymentStatus = invoice.PaymentStatus
+                PaymentStatus = invoice.PaymentStatus,
+                LoyaltyDiscountApplied = loyaltyApplied,
+                LoyaltyDiscountAmount = loyaltyApplied ? loyaltyDiscount : 0
             });
         }
         catch
