@@ -38,17 +38,12 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-var databaseProvider = builder.Configuration["Database:Provider"] ?? "Sqlite";
-if (databaseProvider.Equals("Postgres", StringComparison.OrdinalIgnoreCase))
-{
-    builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-}
-else
-{
-    builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseSqlite(builder.Configuration.GetConnectionString("SqliteConnection")));
-}
+var postgresConnection = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException(
+        "PostgreSQL connection string 'DefaultConnection' is not configured in appsettings.");
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(postgresConnection));
 
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
@@ -84,7 +79,22 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    dbContext.Database.EnsureCreated();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+    try
+    {
+        logger.LogInformation("Applying PostgreSQL EF Core migrations...");
+        dbContext.Database.Migrate();
+        logger.LogInformation("PostgreSQL database is up to date.");
+    }
+    catch (Exception ex)
+    {
+        logger.LogCritical(
+            ex,
+            "Could not connect to PostgreSQL or apply migrations. " +
+            "Ensure PostgreSQL is running, database 'vehicle_parts_db' exists, and credentials in appsettings are correct.");
+        throw;
+    }
 }
 
 if (app.Environment.IsDevelopment())
