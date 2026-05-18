@@ -6,6 +6,7 @@ using VehiclePartsBackend.Data;
 using VehiclePartsBackend.Dtos.Staff;
 using VehiclePartsBackend.Helpers;
 using VehiclePartsBackend.Models;
+using VehiclePartsBackend.Services;
 
 namespace VehiclePartsBackend.Controllers;
 
@@ -15,10 +16,12 @@ namespace VehiclePartsBackend.Controllers;
 public class StaffSalesInvoicesController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly SalesInvoiceEmailService _invoiceEmailService;
 
-    public StaffSalesInvoicesController(AppDbContext context)
+    public StaffSalesInvoicesController(AppDbContext context, SalesInvoiceEmailService invoiceEmailService)
     {
         _context = context;
+        _invoiceEmailService = invoiceEmailService;
     }
 
     [HttpGet("customers")]
@@ -71,6 +74,7 @@ public class StaffSalesInvoicesController : ControllerBase
             {
                 SalesInvoiceId = x.SalesInvoiceId,
                 CustomerName = x.Customer != null ? x.Customer.Name : "",
+                CustomerEmail = x.Customer != null ? x.Customer.Email : "",
                 InvoiceDate = x.InvoiceDate,
                 TotalAmount = x.TotalAmount,
                 PaymentType = x.PaymentType,
@@ -236,5 +240,66 @@ public class StaffSalesInvoicesController : ControllerBase
             await tx.RollbackAsync();
             throw;
         }
+    }
+
+    [HttpGet("{salesInvoiceId:int}")]
+    public async Task<ActionResult<StaffSalesInvoiceDetailResponse>> GetSalesInvoice(int salesInvoiceId)
+    {
+        var header = await (
+            from inv in _context.SalesInvoices.AsNoTracking()
+            join customer in _context.Users.AsNoTracking() on inv.CustomerId equals customer.UserId
+            where inv.SalesInvoiceId == salesInvoiceId
+            select new StaffSalesInvoiceDetailResponse
+            {
+                SalesInvoiceId = inv.SalesInvoiceId,
+                CustomerName = customer.Name,
+                CustomerEmail = customer.Email,
+                InvoiceDate = inv.InvoiceDate,
+                SubTotal = inv.SubTotal,
+                DiscountAmount = inv.DiscountAmount,
+                TotalAmount = inv.TotalAmount,
+                PaymentType = inv.PaymentType,
+                PaymentStatus = inv.PaymentStatus,
+                CreditDueDate = inv.CreditDueDate
+            })
+            .SingleOrDefaultAsync();
+
+        if (header is null)
+        {
+            return NotFound();
+        }
+
+        header.Items = await (
+            from item in _context.SalesInvoiceItems.AsNoTracking()
+            join part in _context.Parts.AsNoTracking() on item.PartId equals part.PartId
+            where item.SalesInvoiceId == salesInvoiceId
+            orderby part.PartName
+            select new StaffSalesInvoiceLineDetailResponse
+            {
+                PartName = part.PartName,
+                Quantity = item.Quantity,
+                UnitPrice = item.UnitPrice,
+                LineTotal = item.LineTotal
+            })
+            .ToListAsync();
+
+        return Ok(header);
+    }
+
+    [HttpPost("{salesInvoiceId:int}/send-email")]
+    public async Task<ActionResult<StaffSendInvoiceEmailResponse>> SendInvoiceEmail(int salesInvoiceId)
+    {
+        var result = await _invoiceEmailService.SendInvoiceEmailAsync(salesInvoiceId);
+        if (result is null)
+        {
+            return NotFound();
+        }
+
+        if (!result.Sent)
+        {
+            return BadRequest(result);
+        }
+
+        return Ok(result);
     }
 }

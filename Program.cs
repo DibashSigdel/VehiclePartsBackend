@@ -51,6 +51,9 @@ else
 }
 
 builder.Services.AddScoped<JwtTokenService>();
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
+builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
+builder.Services.AddScoped<SalesInvoiceEmailService>();
 
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT key not found.");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "VehiclePartsBackend";
