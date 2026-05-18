@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Npgsql;
 using VehiclePartsBackend.Data;
 using VehiclePartsBackend.Services;
 
@@ -83,16 +84,22 @@ using (var scope = app.Services.CreateScope())
 
     try
     {
-        logger.LogInformation("Applying PostgreSQL EF Core migrations...");
-        dbContext.Database.Migrate();
-        logger.LogInformation("PostgreSQL database is up to date.");
+        await DatabaseBootstrap.InitializeAsync(
+            dbContext,
+            logger,
+            seedDevelopmentData: app.Environment.IsDevelopment());
+    }
+    catch (PostgresException ex) when (ex.SqlState == "28P01")
+    {
+        logger.LogCritical(
+            "PostgreSQL password rejected. Update Password in appsettings.Development.json (current user: postgres).");
+        throw;
     }
     catch (Exception ex)
     {
         logger.LogCritical(
             ex,
-            "Could not connect to PostgreSQL or apply migrations. " +
-            "Ensure PostgreSQL is running, database 'vehicle_parts_db' exists, and credentials in appsettings are correct.");
+            "Could not connect to PostgreSQL. Ensure the PostgreSQL service is running and ConnectionStrings:DefaultConnection is correct.");
         throw;
     }
 }
