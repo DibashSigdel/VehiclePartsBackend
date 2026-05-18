@@ -20,6 +20,45 @@ public class StaffCustomersController : ControllerBase
         _context = context;
     }
 
+    [HttpGet("search")]
+    public async Task<ActionResult<List<StaffCustomerSearchResult>>> SearchCustomers([FromQuery] string? q)
+    {
+        if (string.IsNullOrWhiteSpace(q))
+        {
+            return BadRequest("Enter a search term (name, phone, customer ID, or vehicle number).");
+        }
+
+        var term = q.Trim();
+        var pattern = $"%{term}%";
+        int? parsedId = int.TryParse(term, out var id) ? id : null;
+
+        var customers = await _context.Users
+            .AsNoTracking()
+            .Include(u => u.Vehicles)
+            .Where(u => u.Role == Roles.Customer && u.IsActive)
+            .Where(u =>
+                (parsedId.HasValue && u.UserId == parsedId.Value) ||
+                EF.Functions.ILike(u.Name, pattern) ||
+                EF.Functions.ILike(u.Email, pattern) ||
+                EF.Functions.ILike(u.Phone, pattern) ||
+                u.Vehicles.Any(v => EF.Functions.ILike(v.VehicleNumber, pattern)))
+            .OrderBy(u => u.Name)
+            .Take(50)
+            .ToListAsync();
+
+        var results = customers.Select(u => new StaffCustomerSearchResult
+        {
+            UserId = u.UserId,
+            Name = u.Name,
+            Email = u.Email,
+            Phone = u.Phone,
+            Address = u.Address,
+            VehicleNumbers = u.Vehicles.Select(v => v.VehicleNumber).OrderBy(x => x).ToList()
+        }).ToList();
+
+        return Ok(results);
+    }
+
     [HttpPost("register-with-vehicle")]
     public async Task<IActionResult> RegisterCustomerWithVehicle(StaffRegisterCustomerRequest request)
     {
