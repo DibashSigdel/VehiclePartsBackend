@@ -47,6 +47,106 @@ public class CustomerPortalController : ControllerBase
         return Ok(vehicles);
     }
 
+    [HttpPost("vehicles")]
+    public async Task<ActionResult<CustomerVehicleOption>> AddVehicle(CustomerSaveVehicleRequest request)
+    {
+        var customerId = User.GetUserId();
+        if (customerId is null)
+        {
+            return Unauthorized();
+        }
+
+        var validationError = ValidateVehicleRequest(request);
+        if (validationError is not null)
+        {
+            return BadRequest(validationError);
+        }
+
+        var vehicleNumber = request.VehicleNumber.Trim();
+        if (await _context.Vehicles.AnyAsync(x => x.VehicleNumber == vehicleNumber))
+        {
+            return BadRequest("Vehicle number already exists.");
+        }
+
+        var vehicle = new Vehicle
+        {
+            CustomerId = customerId.Value,
+            VehicleNumber = vehicleNumber,
+            Brand = request.Brand.Trim(),
+            Model = request.Model.Trim(),
+            Year = request.Year
+        };
+
+        _context.Vehicles.Add(vehicle);
+        await _context.SaveChangesAsync();
+
+        return Ok(MapVehicle(vehicle));
+    }
+
+    [HttpPut("vehicles/{vehicleId:int}")]
+    public async Task<ActionResult<CustomerVehicleOption>> UpdateVehicle(int vehicleId, CustomerSaveVehicleRequest request)
+    {
+        var customerId = User.GetUserId();
+        if (customerId is null)
+        {
+            return Unauthorized();
+        }
+
+        var validationError = ValidateVehicleRequest(request);
+        if (validationError is not null)
+        {
+            return BadRequest(validationError);
+        }
+
+        var vehicle = await _context.Vehicles
+            .SingleOrDefaultAsync(x => x.VehicleId == vehicleId && x.CustomerId == customerId.Value);
+        if (vehicle is null)
+        {
+            return NotFound("Vehicle not found.");
+        }
+
+        var vehicleNumber = request.VehicleNumber.Trim();
+        if (await _context.Vehicles.AnyAsync(x => x.VehicleNumber == vehicleNumber && x.VehicleId != vehicleId))
+        {
+            return BadRequest("Vehicle number already exists.");
+        }
+
+        vehicle.VehicleNumber = vehicleNumber;
+        vehicle.Brand = request.Brand.Trim();
+        vehicle.Model = request.Model.Trim();
+        vehicle.Year = request.Year;
+
+        await _context.SaveChangesAsync();
+        return Ok(MapVehicle(vehicle));
+    }
+
+    [HttpDelete("vehicles/{vehicleId:int}")]
+    public async Task<IActionResult> DeleteVehicle(int vehicleId)
+    {
+        var customerId = User.GetUserId();
+        if (customerId is null)
+        {
+            return Unauthorized();
+        }
+
+        var vehicle = await _context.Vehicles
+            .SingleOrDefaultAsync(x => x.VehicleId == vehicleId && x.CustomerId == customerId.Value);
+        if (vehicle is null)
+        {
+            return NotFound("Vehicle not found.");
+        }
+
+        var hasAppointments = await _context.Appointments.AnyAsync(x => x.VehicleId == vehicleId);
+        if (hasAppointments)
+        {
+            return BadRequest("Cannot delete a vehicle that has appointments. Contact staff if needed.");
+        }
+
+        _context.Vehicles.Remove(vehicle);
+        await _context.SaveChangesAsync();
+        return Ok("Vehicle deleted.");
+    }
+
     [HttpGet("appointments")]
     public async Task<ActionResult<List<CustomerAppointmentResponse>>> GetAppointments()
     {
@@ -347,4 +447,39 @@ public class CustomerPortalController : ControllerBase
 
     private static string FormatVehicleLabel(string brand, string model, string vehicleNumber) =>
         $"{brand} {model} ({vehicleNumber})";
+
+    private static CustomerVehicleOption MapVehicle(Vehicle vehicle) => new()
+    {
+        VehicleId = vehicle.VehicleId,
+        VehicleNumber = vehicle.VehicleNumber,
+        Brand = vehicle.Brand,
+        Model = vehicle.Model,
+        Year = vehicle.Year
+    };
+
+    private static string? ValidateVehicleRequest(CustomerSaveVehicleRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.VehicleNumber))
+        {
+            return "Vehicle number is required.";
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Brand))
+        {
+            return "Brand is required.";
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Model))
+        {
+            return "Model is required.";
+        }
+
+        var currentYear = DateTime.UtcNow.Year;
+        if (request.Year < 1900 || request.Year > currentYear + 1)
+        {
+            return $"Year must be between 1900 and {currentYear + 1}.";
+        }
+
+        return null;
+    }
 }

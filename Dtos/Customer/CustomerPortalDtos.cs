@@ -9,6 +9,14 @@ public class CustomerVehicleOption
     public int Year { get; set; }
 }
 
+public class CustomerSaveVehicleRequest
+{
+    public string VehicleNumber { get; set; } = string.Empty;
+    public string Brand { get; set; } = string.Empty;
+    public string Model { get; set; } = string.Empty;
+    public int Year { get; set; }
+}
+
 public class CustomerAppointmentResponse
 {
     public int AppointmentId { get; set; }
