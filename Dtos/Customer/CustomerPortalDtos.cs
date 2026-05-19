@@ -73,3 +73,23 @@ public class CustomerSubmitReviewRequest
     public int Rating { get; set; }
     public string Comment { get; set; } = string.Empty;
 }
+
+public class CustomerPurchaseHistoryItem
+{
+    public int SalesInvoiceId { get; set; }
+    public DateTime InvoiceDate { get; set; }
+    public decimal SubTotal { get; set; }
+    public decimal DiscountAmount { get; set; }
+    public decimal TotalAmount { get; set; }
+    public string PaymentType { get; set; } = string.Empty;
+    public string PaymentStatus { get; set; } = string.Empty;
+    public List<CustomerPurchaseHistoryLine> Lines { get; set; } = [];
+}
+
+public class CustomerPurchaseHistoryLine
+{
+    public string PartName { get; set; } = string.Empty;
+    public int Quantity { get; set; }
+    public decimal UnitPrice { get; set; }
+    public decimal LineTotal { get; set; }
+}

@@ -147,6 +147,44 @@ public class CustomerPortalController : ControllerBase
         return Ok("Vehicle deleted.");
     }
 
+    [HttpGet("purchase-history")]
+    public async Task<ActionResult<List<CustomerPurchaseHistoryItem>>> GetPurchaseHistory()
+    {
+        var customerId = User.GetUserId();
+        if (customerId is null)
+        {
+            return Unauthorized();
+        }
+
+        var invoices = await _context.SalesInvoices
+            .AsNoTracking()
+            .Include(x => x.Items)
+                .ThenInclude(i => i.Part)
+            .Where(x => x.CustomerId == customerId.Value)
+            .OrderByDescending(x => x.InvoiceDate)
+            .ToListAsync();
+
+        var result = invoices.Select(inv => new CustomerPurchaseHistoryItem
+        {
+            SalesInvoiceId = inv.SalesInvoiceId,
+            InvoiceDate = inv.InvoiceDate,
+            SubTotal = inv.SubTotal,
+            DiscountAmount = inv.DiscountAmount,
+            TotalAmount = inv.TotalAmount,
+            PaymentType = inv.PaymentType,
+            PaymentStatus = inv.PaymentStatus,
+            Lines = inv.Items.Select(line => new CustomerPurchaseHistoryLine
+            {
+                PartName = line.Part?.PartName ?? "(removed part)",
+                Quantity = line.Quantity,
+                UnitPrice = line.UnitPrice,
+                LineTotal = line.LineTotal
+            }).ToList()
+        }).ToList();
+
+        return Ok(result);
+    }
+
     [HttpGet("appointments")]
     public async Task<ActionResult<List<CustomerAppointmentResponse>>> GetAppointments()
     {
