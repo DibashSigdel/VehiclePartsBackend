@@ -59,6 +59,88 @@ public class StaffCustomersController : ControllerBase
         return Ok(results);
     }
 
+    [HttpGet("{customerId:int}")]
+    public async Task<ActionResult<StaffCustomerDetailResponse>> GetCustomerDetail(int customerId)
+    {
+        var customer = await _context.Users
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.UserId == customerId && x.Role == Roles.Customer);
+        if (customer is null)
+        {
+            return NotFound("Customer not found.");
+        }
+
+        var vehicles = await _context.Vehicles
+            .AsNoTracking()
+            .Where(x => x.CustomerId == customerId)
+            .OrderBy(x => x.VehicleNumber)
+            .Select(x => new StaffCustomerVehicleDetail
+            {
+                VehicleId = x.VehicleId,
+                VehicleNumber = x.VehicleNumber,
+                Brand = x.Brand,
+                Model = x.Model,
+                Year = x.Year
+            })
+            .ToListAsync();
+
+        var purchaseHistory = await _context.SalesInvoices
+            .AsNoTracking()
+            .Where(x => x.CustomerId == customerId)
+            .OrderByDescending(x => x.InvoiceDate)
+            .Select(x => new StaffCustomerPurchaseHistoryItem
+            {
+                SalesInvoiceId = x.SalesInvoiceId,
+                InvoiceDate = x.InvoiceDate,
+                SubTotal = x.SubTotal,
+                DiscountAmount = x.DiscountAmount,
+                TotalAmount = x.TotalAmount,
+                PaymentType = x.PaymentType,
+                PaymentStatus = x.PaymentStatus,
+                ItemCount = x.Items.Count
+            })
+            .ToListAsync();
+
+        var serviceRows = await (
+            from a in _context.Appointments.AsNoTracking()
+            join v in _context.Vehicles.AsNoTracking() on a.VehicleId equals v.VehicleId
+            where a.CustomerId == customerId
+            orderby a.AppointmentDate descending
+            select new
+            {
+                a.AppointmentId,
+                v.Brand,
+                v.Model,
+                v.VehicleNumber,
+                a.AppointmentDate,
+                a.Status,
+                a.ServiceNote
+            })
+            .ToListAsync();
+
+        var serviceHistory = serviceRows.Select(x => new StaffCustomerServiceHistoryItem
+        {
+            AppointmentId = x.AppointmentId,
+            VehicleLabel = $"{x.Brand} {x.Model} ({x.VehicleNumber})",
+            AppointmentDate = x.AppointmentDate,
+            Status = x.Status,
+            ServiceNote = x.ServiceNote
+        }).ToList();
+
+        return Ok(new StaffCustomerDetailResponse
+        {
+            UserId = customer.UserId,
+            Name = customer.Name,
+            Email = customer.Email,
+            Phone = customer.Phone,
+            Address = customer.Address,
+            CreatedAt = customer.CreatedAt,
+            Vehicles = vehicles,
+            PurchaseHistory = purchaseHistory,
+            ServiceHistory = serviceHistory
+        });
+    }
+
     [HttpPost("register-with-vehicle")]
     public async Task<IActionResult> RegisterCustomerWithVehicle(StaffRegisterCustomerRequest request)
     {
